@@ -1,8 +1,10 @@
 
 package com.chiemy.pullseparate;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import android.content.Context;
-import android.content.res.TypedArray;
 import android.graphics.drawable.BitmapDrawable;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -12,11 +14,11 @@ import android.view.animation.AccelerateInterpolator;
 import android.widget.AbsListView;
 import android.widget.ListView;
 
+import com.nineoldandroids.animation.Animator;
+import com.nineoldandroids.animation.Animator.AnimatorListener;
 import com.nineoldandroids.view.ViewPropertyAnimator;
 
 /**
- * 
- * 
  * @author simon
  */
 public class SeparateBottomListView extends ListView {
@@ -40,6 +42,7 @@ public class SeparateBottomListView extends ListView {
 
     public boolean mIsUpScroll = false;
     public boolean mIsScrolling = false;
+    private Boolean[] AnimationState = null;
 
     public SeparateBottomListView(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -71,13 +74,71 @@ public class SeparateBottomListView extends ListView {
      * 恢复
      */
     private void recoverSeparate() {
-        Log.d(VIEW_LOG_TAG, "recoverSeparate");
-        for (int i = 0; i < getChildCount(); i++) {
+        int childCount = getChildCount();
+        AnimationState = new Boolean[childCount];
+        for (int i = 0; i < AnimationState.length; i++) {
+            AnimationState[i] = new Boolean(false);
+        }
+        Log.d(TAG, "recoverSeparate AnimationState.length:" + AnimationState.length
+                + " getChildCount()=" + getChildCount());
+
+        for (int i = 0; i < childCount; i++) {
             View child = getChildAt(i);
+            final int out_index = i;
             ViewPropertyAnimator.animate(child).translationY(0)
                     .setDuration(SEPARATE_RECOVER_DURATION)
-                    .setInterpolator(new AccelerateInterpolator());
+                    .setInterpolator(new AccelerateInterpolator())
+                    .setListener(new AnimatorListener() {
+                        Integer index = new Integer(out_index);
+
+                        @Override
+                        public void onAnimationStart(Animator arg0) {
+                            // TODO Auto-generated method stub
+                            Log.d(TAG, "onAnimationStart index:" + index);
+                        }
+
+                        @Override
+                        public void onAnimationRepeat(Animator arg0) {
+                            // TODO Auto-generated method stub
+
+                        }
+
+                        @Override
+                        public void onAnimationEnd(Animator arg0) {
+                            // TODO Auto-generated method stub
+                            Log.d(TAG,
+                                    "onAnimationEnd AnimationState.length:"
+                                            + AnimationState.length
+                                            + " index=" + index);
+                            AnimationState[index] = true;
+                        }
+
+                        @Override
+                        public void onAnimationCancel(Animator arg0) {
+                            // TODO Auto-generated method stub
+
+                        }
+                    });
+
         }
+    }
+
+    private boolean isAnimRunning() {
+        boolean isRunning = false;
+        if (AnimationState == null) {
+            isRunning = false;
+        }
+        else {
+            for (int i = 0; i < AnimationState.length; i++) {
+                if (!AnimationState[i]) {
+                    isRunning = true;
+                    break;
+                }
+            }
+        }
+        Log.d(TAG, "isSeperateRecovered getChildCount()=" + getChildCount() + " isRunning="
+                + isRunning);
+        return isRunning;
     }
 
     private int mLastVisiblePos = 0;
@@ -87,10 +148,11 @@ public class SeparateBottomListView extends ListView {
         @Override
         public void onScrollStateChanged(AbsListView view, int scrollState) {
 
-            if (scrollState == OnScrollListener.SCROLL_STATE_FLING
-                    || scrollState == OnScrollListener.SCROLL_STATE_IDLE) {
-                recoverSeparate();
-                mLastVisiblePos = -1;
+            if (scrollState == OnScrollListener.SCROLL_STATE_IDLE) {
+                if (!isAnimRunning()) {
+                    recoverSeparate();
+                }
+
             }
         }
 
@@ -99,13 +161,16 @@ public class SeparateBottomListView extends ListView {
                 int visibleItemCount, int totalItemCount) {
             if (mLastVisiblePos < firstVisibleItem) {
                 isUpScroll = true;
-                Log.d(TAG, "up scroll");
+
             } else if (mLastVisiblePos > firstVisibleItem) {
-                Log.d(TAG, "down scroll");
                 isUpScroll = false;
             }
             mLastVisiblePos = firstVisibleItem;
-            seperateItem();
+
+            Log.d(TAG, "isUpScroll=" + isUpScroll);
+            if (isUpScroll && !isAnimRunning()) {
+                seperateItem();
+            }
         }
     };
 
@@ -149,9 +214,6 @@ public class SeparateBottomListView extends ListView {
     }
 
     public void seperateItem() {
-        if (!isUpScroll) {
-            return;
-        }
 
         int visibleCount = getChildCount();
         deltaY = 50;
